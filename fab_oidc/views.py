@@ -4,7 +4,10 @@ from flask_appbuilder.security.views import AuthOIDView
 from flask_login import login_user
 from flask_admin import expose
 from urllib.parse import quote
+import jwt
+import logging
 
+log = logging.getLogger(__name__)
 
 # Set the OIDC field that should be used as a username
 USERNAME_OIDC_FIELD = os.getenv('USERNAME_OIDC_FIELD', default='sub')
@@ -18,14 +21,15 @@ class AuthOIDCView(AuthOIDView):
 
     @expose('/login/', methods=['GET', 'POST'])
     def login(self, flag=True):
-
         sm = self.appbuilder.sm
         oidc = sm.oid
 
         @self.appbuilder.sm.oid.require_login
         def handle_login():
+            log.debug(f"oidc.user_getfield('email') {oidc.user_getfield('email')}")
+            log.debug(f'request.args["next"], {request.args["next"]}')
             user = sm.auth_user_oid(oidc.user_getfield('email'))
-
+            log.debug(f'user: {user}')
             if user is None:
                 info = oidc.user_getinfo([
                     USERNAME_OIDC_FIELD,
@@ -33,7 +37,7 @@ class AuthOIDCView(AuthOIDView):
                     LAST_NAME_OIDC_FIELD,
                     'email',
                 ])
-
+                log.debug('sm.add_user')
                 user = sm.add_user(
                     username=info.get(USERNAME_OIDC_FIELD),
                     first_name=info.get(FIRST_NAME_OIDC_FIELD),
@@ -43,7 +47,13 @@ class AuthOIDCView(AuthOIDView):
                 )
 
             login_user(user, remember=False)
-            return redirect(self.appbuilder.get_url_for_index)
+
+            try:
+                next_url = request.args["next"] or self.appbuilder.get_url_for_index
+            except (KeyError, IndexError):
+                next_url = self.appbuilder.get_url_for_index
+            log.debug(f'next_url {next_url}')
+            return redirect(next_url)
 
         return handle_login()
 
