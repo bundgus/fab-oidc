@@ -9,13 +9,6 @@ import logging
 
 log = logging.getLogger(__name__)
 
-# Set the OIDC field that should be used as a username
-USERNAME_OIDC_FIELD = os.getenv('USERNAME_OIDC_FIELD', default='sub')
-FIRST_NAME_OIDC_FIELD = os.getenv('FIRST_NAME_OIDC_FIELD',
-                                  default='nickname')
-LAST_NAME_OIDC_FIELD = os.getenv('LAST_NAME_OIDC_FIELD',
-                                 default='name')
-
 
 class AuthOIDCView(AuthOIDView):
 
@@ -28,17 +21,18 @@ class AuthOIDCView(AuthOIDView):
         def handle_login():
             user = sm.auth_user_oid(oidc.user_getfield('email'))
             if user is None:
-                info = oidc.user_getinfo([
-                    USERNAME_OIDC_FIELD,
-                    FIRST_NAME_OIDC_FIELD,
-                    LAST_NAME_OIDC_FIELD,
-                    'email',
-                ])
+                email = oidc.user_getfield('email')
+                try:
+                    first_name = email.split('@')[0].split('.')[0]
+                    last_name = email.split('@')[0].split('.')[1]
+                except:
+                    first_name = 'FirstName'
+                    last_name = 'LastName'
                 user = sm.add_user(
-                    username=info.get(USERNAME_OIDC_FIELD),
-                    first_name=info.get(FIRST_NAME_OIDC_FIELD),
-                    last_name=info.get(LAST_NAME_OIDC_FIELD),
-                    email=info.get('email'),
+                    username=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=email,
                     role=sm.find_role(sm.auth_user_registration_role)
                 )
 
